@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { events, loadEvents } from '../store/events'
 
@@ -280,26 +280,57 @@ const removeQuadrantTask = (quadrantId, taskId) => {
 
 watch(quadrants, saveQuadrants, { deep: true })
 
-const quickNote = ref('')
-const noteUpdatedAt = ref('')
+const QUICK_NOTES_KEY = 'tool-quick-notes'
 
+const quickNotes = ref([])
+const quickInput = ref('')
 
-const saveNote = () => {
-  localStorage.setItem('tool-quick-note', quickNote.value)
-  const now = new Date()
-  noteUpdatedAt.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-  localStorage.setItem('tool-quick-note-updated', noteUpdatedAt.value)
-  ElMessage.success('便签已保存')
+const saveQuickNote = () => {
+  const txt = quickInput.value.trim()
+  if (!txt) return
+  const note = {
+    id: Date.now() + Math.random(),
+    text: txt,
+    createdAt: new Date().toISOString()
+  }
+  quickNotes.value.unshift(note)
+  nextTick(() => {
+    quickInput.value = ''
+  })
+  saveNotes()
+  ElMessage.success('灵感已保存')
 }
 
-const loadNote = () => {
-  quickNote.value = localStorage.getItem('tool-quick-note') || ''
-  noteUpdatedAt.value = localStorage.getItem('tool-quick-note-updated') || ''
+const deleteQuickNote = (id) => {
+  quickNotes.value = quickNotes.value.filter(n => n.id !== id)
+  saveNotes()
+}
+
+const loadNotes = () => {
+  const raw = localStorage.getItem(QUICK_NOTES_KEY)
+  if (!raw) return
+  try {
+    quickNotes.value = JSON.parse(raw)
+  } catch {}
+}
+
+const saveNotes = () => {
+  localStorage.setItem(QUICK_NOTES_KEY, JSON.stringify(quickNotes.value))
+}
+
+const formatNoteTime = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const now = new Date()
+  if (d.toDateString() === now.toDateString()) {
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+  return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
 onMounted(() => {
   loadEvents()
-  loadNote()
+  loadNotes()
   loadQuadrants()
 })
 
@@ -452,20 +483,38 @@ onUnmounted(() => {
         </div>
       </el-card>
 
-      <el-card class="tools-card" shadow="never">
+      <el-card class="tools-card tools-card--notes" shadow="never">
         <template #header>
           <div class="card-title">便签速记</div>
         </template>
-        <el-input
-          v-model="quickNote"
-          type="textarea"
-          :rows="8"
-          class="tools-textarea"
-          placeholder="记录灵感或待办要点"
-        />
-        <div class="note-footer">
-          <span>上次保存：{{ noteUpdatedAt || '未保存' }}</span>
-          <el-button size="small" type="primary" @click="saveNote">保存便签</el-button>
+
+        <div class="quick-input-row">
+          <el-input
+            v-model="quickInput"
+            placeholder="回车保存灵感或待办要点"
+            class="quick-input"
+            @keyup.enter="saveQuickNote"
+          />
+          <el-button type="primary" @click="saveQuickNote">保存</el-button>
+        </div>
+
+        <div v-if="quickNotes.length === 0" class="notes-empty">
+          <div class="notes-empty__icon">💡</div>
+          <div class="notes-empty__text">暂无记录</div>
+        </div>
+
+        <div v-else class="notes-list">
+          <div
+            v-for="note in quickNotes"
+            :key="note.id"
+            class="note-card"
+          >
+            <div class="note-card__content">{{ note.text }}</div>
+            <div class="note-card__meta">
+              <span class="note-card__time">{{ formatNoteTime(note.createdAt) }}</span>
+            </div>
+            <div class="note-card__delete" @click="deleteQuickNote(note.id)">×</div>
+          </div>
         </div>
       </el-card>
 
@@ -751,12 +800,14 @@ onUnmounted(() => {
 .timer__controls {
   display: flex;
   gap: 10px;
+  justify-content: center;
 }
 
 .timer__presets {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 .tools-textarea :deep(textarea) {
@@ -1044,6 +1095,152 @@ onUnmounted(() => {
   gap: 8px;
   padding-top: 4px;
   border-top: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+/* ===== 便签速记 ===== */
+.tools-card--notes {
+  border-color: rgba(251, 191, 36, 0.2);
+  background: linear-gradient(135deg, rgba(254, 249, 195, 0.7) 0%, rgba(255, 251, 235, 0.95) 100%);
+}
+
+.quick-input-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.quick-input {
+  flex: 1;
+}
+
+.notes-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 0;
+  gap: 6px;
+}
+
+.notes-empty__icon {
+  font-size: 22px;
+}
+
+.notes-empty__text {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.notes-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.notes-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.notes-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notes-list::-webkit-scrollbar-thumb {
+  background: rgba(251, 191, 36, 0.2);
+  border-radius: 2px;
+}
+
+.note-card {
+  position: relative;
+  width: 220px;
+  padding: 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #fef9e7 100%);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 1px 8px rgba(251, 191, 36, 0.08);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.note-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #fbbf24, #f59e0b, #fbbf24);
+  opacity: 0.6;
+}
+
+.note-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(251, 191, 36, 0.16);
+  border-color: rgba(251, 191, 36, 0.32);
+}
+
+.note-card__content {
+  font-size: 14px;
+  color: #1f2937;
+  line-height: 1.55;
+  margin-bottom: 10px;
+  word-break: break-word;
+  font-weight: 500;
+}
+
+.note-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(251, 191, 36, 0.2);
+}
+
+.note-card__time {
+  font-size: 12px;
+  color: #d97706;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.note-card__time::before {
+  content: '🕐';
+  font-size: 13px;
+}
+
+.note-card__delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s;
+  font-size: 18px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.note-card:hover .note-card__delete {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.note-card__delete:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  transform: scale(1.1);
 }
 
 @media (max-width: 1024px) {
