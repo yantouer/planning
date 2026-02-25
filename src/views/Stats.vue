@@ -270,7 +270,7 @@ const efficiencyTip = computed(() => {
     <header class="stats-header">
       <div>
         <h2 class="stats-title">统计面板</h2>
-        <p class="stats-subtitle">聚合你的一周节奏、完成效率与事件分布。</p>
+        <p class="stats-subtitle">聚合你的节奏、完成效率与事件分布。</p>
       </div>
       <div class="stats-actions">
         <el-date-picker
