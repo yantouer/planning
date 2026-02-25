@@ -23,8 +23,14 @@ onMounted(() => {
 
 
 const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
+const endOfDay = (date) => {
+  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  end.setHours(23, 59, 59, 999)
+  return end
+}
 
 const parseDate = (value) => {
+
   if (!value) return null
   if (value instanceof Date) return startOfDay(value)
   if (typeof value !== 'string') return null
@@ -184,18 +190,20 @@ const eventsInRange = computed(() => {
   return events.value.filter(event => isInRange(event, start, end))
 })
 
-const getStatus = (event) => {
-
-  const today = startOfDay(new Date())
-  const todayEnd = new Date(today)
-  todayEnd.setDate(todayEnd.getDate() + 1)
-  todayEnd.setMilliseconds(todayEnd.getMilliseconds() - 1)
+const getStatusAt = (event, referenceDate) => {
+  const refStart = startOfDay(referenceDate)
+  const refEnd = endOfDay(referenceDate)
   const { start, end } = getEventRange(event)
   if (!start || !end) return '进行中'
-  if (end < today) return event.type === 'task' ? '逾期' : '已完成'
-  if (start > todayEnd) return '待开始'
+  if (end < refStart) return event.type === 'task' ? '逾期' : '已完成'
+  if (start > refEnd) return '待开始'
   return '进行中'
 }
+
+const getStatus = (event) => {
+  return getStatusAt(event, new Date())
+}
+
 
 const focusHours = computed(() => {
 
@@ -243,13 +251,15 @@ const typeDistribution = computed(() => {
 const countStats = (rangeStart, rangeEnd) => {
   const filtered = events.value.filter(event => isInRange(event, rangeStart, rangeEnd))
   const statusCounts = { completed: 0, ongoing: 0, overdue: 0 }
+  const referenceDate = rangeEnd || new Date()
 
   filtered.forEach(event => {
-    const status = getStatus(event)
+    const status = getStatusAt(event, referenceDate)
     if (status === '已完成') statusCounts.completed += 1
     if (status === '逾期') statusCounts.overdue += 1
     if (status === '进行中' || status === '待开始') statusCounts.ongoing += 1
   })
+
 
   return {
     total: filtered.length,
@@ -411,21 +421,6 @@ const copyWeeklyReport = async () => {
     <section class="stats-content">
       <el-card class="panel" shadow="never">
         <template #header>
-          <div class="panel-title">专注时长（小时）</div>
-        </template>
-        <div class="bar-chart">
-          <div v-for="item in focusHours" :key="item.day" class="bar-item">
-            <div class="bar-item__label">{{ item.day }}</div>
-            <div class="bar-item__track">
-              <div class="bar-item__bar" :style="{ width: `${(item.hours / 8) * 100}%` }"></div>
-            </div>
-            <div class="bar-item__value">{{ item.hours }}h</div>
-          </div>
-        </div>
-      </el-card>
-
-      <el-card class="panel" shadow="never">
-        <template #header>
           <div class="panel-title">事件类型分布</div>
         </template>
         <div class="distribution">
@@ -462,6 +457,21 @@ const copyWeeklyReport = async () => {
         </div>
       </el-card>
 
+      <el-card class="panel" shadow="never">
+        <template #header>
+          <div class="panel-title">专注时长（小时）</div>
+        </template>
+        <div class="bar-chart">
+          <div v-for="item in focusHours" :key="item.day" class="bar-item">
+            <div class="bar-item__label">{{ item.day }}</div>
+            <div class="bar-item__track">
+              <div class="bar-item__bar" :style="{ width: `${(item.hours / 8) * 100}%` }"></div>
+            </div>
+            <div class="bar-item__value">{{ item.hours }}h</div>
+          </div>
+        </div>
+      </el-card>
+      
       <el-card class="panel panel--wide" shadow="never">
         <template #header>
           <div class="panel-title weekly-report__header">
