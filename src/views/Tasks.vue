@@ -3,7 +3,20 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { events, loadEvents } from '../store/events'
 
+const eventTypes = [
+  { value: 'task', label: '任务', color: '#667eea', bgColor: 'linear-gradient(135deg, #667eea 0%, #5a67d8 100%)' },
+  { value: 'meeting', label: '会议', color: '#48bb78', bgColor: 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)' },
+  { value: 'issue', label: '问题', color: '#f56565', bgColor: 'linear-gradient(135deg, #f56565 0%, #e53e3e 100%)' },
+  { value: 'reminder', label: '提醒', color: '#ed8936', bgColor: 'linear-gradient(135deg, #ed8936 0%, #dd6b20 100%)' },
+  { value: 'other', label: '其他', color: '#718096', bgColor: 'linear-gradient(135deg, #718096 0%, #4a5568 100%)' }
+]
+
+const getEventType = (type) => {
+  return eventTypes.find(item => item.value === type) || eventTypes[4]
+}
+
 const presets = [
+
   { label: '番茄 25/5', focus: 25, rest: 5 },
   { label: '深度 50/10', focus: 50, rest: 10 },
   { label: '冲刺 90/15', focus: 90, rest: 15 }
@@ -406,13 +419,22 @@ onUnmounted(() => {
         </div>
         <div class="upcoming-list">
           <div v-if="upcomingEvents.length === 0" class="empty">暂无即将发生的事件</div>
-          <div v-for="event in upcomingEvents" :key="event.id" class="upcoming-item">
+          <div
+            v-for="event in upcomingEvents"
+            :key="event.id"
+            class="upcoming-item"
+            :style="{
+              borderLeftColor: getEventType(event.type).color,
+              background: getEventType(event.type).bgColor
+            }"
+          >
             <div class="upcoming-item__title">{{ event.title || '未命名事件' }}</div>
             <div class="upcoming-item__meta">
-              <span>{{ event.date }}</span>
+              <span class="upcoming-item__date">{{ event.date }}</span>
               <span>{{ event.isAllDay ? '全天' : `${formatTime(event.startTime)}-${formatTime(event.endTime)}` }}</span>
             </div>
           </div>
+
         </div>
       </el-card>
     </section>
@@ -655,13 +677,15 @@ onUnmounted(() => {
 .upcoming-item {
   padding: 10px 12px;
   border-radius: 10px;
-  background: #f9fafb;
+  border-left: 4px solid transparent;
+  color: #f8fafc;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
 }
 
 .upcoming-item__title {
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
+  color: #ffffff;
   margin-bottom: 6px;
 }
 
@@ -669,8 +693,13 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.85);
 }
+
+.upcoming-item__date {
+  font-weight: 600;
+}
+
 
 .empty {
   font-size: 13px;
