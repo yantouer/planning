@@ -145,8 +145,6 @@ const todayStats = computed(() => {
   return { total, allDay }
 })
 
-const todayListText = ref('')
-
 const formatTime = (value) => {
   if (value === null || value === undefined) return '--'
   const hours = Math.floor(value)
@@ -154,28 +152,43 @@ const formatTime = (value) => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
 }
 
-const generateTodayList = () => {
-  const today = startOfDay(new Date())
-  const todayLabel = toDateLabel(today)
-  const list = events.value
-    .filter(event => isInRange(event, today, today))
-    .sort((a, b) => (a.startTime || 0) - (b.startTime || 0))
-    .map(event => {
-      const timeLabel = event.isAllDay ? '全天' : `${formatTime(event.startTime)}-${formatTime(event.endTime)}`
-      return `- ${timeLabel} ${event.title || '未命名事件'}`
-    })
+const todayLabel = computed(() => toDateLabel(startOfDay(new Date())))
 
-  todayListText.value = list.length ? [`今日清单（${todayLabel}）`, ...list].join('\n') : `今日清单（${todayLabel}）\n- 暂无事件`
+const todayListItems = computed(() => {
+  const today = startOfDay(new Date())
+  return events.value
+    .filter(event => isInRange(event, today, today))
+    .sort((a, b) => {
+      if (a.isAllDay && !b.isAllDay) return -1
+      if (!a.isAllDay && b.isAllDay) return 1
+      return (a.startTime || 0) - (b.startTime || 0)
+    })
+})
+
+const todayListDoneMap = ref({})
+
+const toggleTodayItem = (id) => {
+  todayListDoneMap.value[id] = !todayListDoneMap.value[id]
+}
+
+const refreshTodayList = () => {
+  loadEvents()
+  ElMessage.success('今日清单已刷新')
 }
 
 const copyTodayList = async () => {
-  if (!todayListText.value) {
-    generateTodayList()
-  }
+  const lines = [
+    `今日清单（${todayLabel.value}）`,
+    ...todayListItems.value.map(event => {
+      const timeLabel = event.isAllDay ? '全天' : `${formatTime(event.startTime)}-${formatTime(event.endTime)}`
+      return `- ${timeLabel} ${event.title || '未命名事件'}`
+    })
+  ]
+  if (todayListItems.value.length === 0) lines.push('- 暂无事件')
   try {
-    await navigator.clipboard.writeText(todayListText.value)
+    await navigator.clipboard.writeText(lines.join('\n'))
     ElMessage.success('已复制今日清单')
-  } catch (error) {
+  } catch {
     ElMessage.error('复制失败，请手动复制')
   }
 }
@@ -288,7 +301,6 @@ onMounted(() => {
   loadEvents()
   loadNote()
   loadQuadrants()
-  generateTodayList()
 })
 
 onUnmounted(() => {
@@ -304,7 +316,7 @@ onUnmounted(() => {
         <p class="tools-subtitle">为日程与专注提供即时支持。</p>
       </div>
       <div class="tools-actions">
-        <el-button @click="generateTodayList">刷新今日清单</el-button>
+        <el-button @click="refreshTodayList">刷新今日清单</el-button>
         <el-button type="primary" @click="copyTodayList">复制清单</el-button>
       </div>
     </header>
@@ -351,16 +363,17 @@ onUnmounted(() => {
     </section>
     <el-divider class="settings-divider" />
     <section class="tools-grid">
-      <el-card class="tools-card" shadow="never">
+      <el-card class="tools-card tools-card--tomato" shadow="never">
         <template #header>
-          <div class="card-title">专注计时器(番茄时钟)</div>
+          <div class="card-title card-title--tomato">专注计时器(番茄时钟)</div>
         </template>
-        <div class="timer">
+        <div class="timer timer--tomato">
           <div class="timer__status">
             <span>{{ currentLabel }}</span>
             <strong>{{ formatClock(remainingSec) }}</strong>
           </div>
-          <el-progress :percentage="progress" :stroke-width="10" />
+          <el-progress :percentage="progress" :stroke-width="10" color="#ef4444" />
+
           <div class="timer__controls">
             <el-button @click="toggleTimer">{{ running ? '暂停' : '开始' }}</el-button>
             <el-button @click="resetTimer">重置</el-button>
@@ -379,11 +392,64 @@ onUnmounted(() => {
         </div>
       </el-card>
 
-      <el-card class="tools-card" shadow="never">
+      <el-card class="tools-card tools-card--today" shadow="never">
         <template #header>
-          <div class="card-title">今日清单</div>
+          <div class="today-card-header">
+            <div class="card-title">今日清单</div>
+            <span class="today-date-badge">{{ todayLabel }}</span>
+          </div>
         </template>
-        <el-input v-model="todayListText" type="textarea" :rows="9" class="tools-textarea" />
+
+        <div class="today-stats">
+          <div class="today-stat-item">
+            <span class="today-stat-num">{{ todayListItems.length }}</span>
+            <span class="today-stat-label">事项</span>
+          </div>
+          <div class="today-stat-item">
+            <span class="today-stat-num today-stat-num--done">{{ Object.values(todayListDoneMap).filter(Boolean).length }}</span>
+            <span class="today-stat-label">已完成</span>
+          </div>
+          <div class="today-stat-item">
+            <span class="today-stat-num today-stat-num--left">{{ todayListItems.length - Object.values(todayListDoneMap).filter(Boolean).length }}</span>
+            <span class="today-stat-label">待处理</span>
+          </div>
+        </div>
+
+        <div class="today-list">
+          <div v-if="todayListItems.length === 0" class="today-empty">
+            <div class="today-empty__icon">✓</div>
+            <div class="today-empty__text">今日暂无安排，放松一下吧！</div>
+          </div>
+          <div
+            v-for="event in todayListItems"
+            :key="event.id"
+            class="today-item"
+            :class="{ 'is-done': todayListDoneMap[event.id] }"
+            @click="toggleTodayItem(event.id)"
+          >
+            <div class="today-item__check" :style="{ borderColor: getEventType(event.type).color, background: todayListDoneMap[event.id] ? getEventType(event.type).color : 'transparent' }">
+              <svg v-if="todayListDoneMap[event.id]" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="today-item__body">
+              <div class="today-item__title">{{ event.title || '未命名事件' }}</div>
+              <div class="today-item__meta">
+                <span
+                  class="today-item__type-dot"
+                  :style="{ background: getEventType(event.type).color }"
+                ></span>
+                <span class="today-item__type-label">{{ getEventType(event.type).label }}</span>
+                <span class="today-item__time">{{ event.isAllDay ? '全天' : `${formatTime(event.startTime)} - ${formatTime(event.endTime)}` }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="today-footer">
+          <el-button size="small" @click="refreshTodayList">刷新</el-button>
+          <el-button size="small" type="primary" @click="copyTodayList">复制清单</el-button>
+        </div>
       </el-card>
 
       <el-card class="tools-card" shadow="never">
@@ -625,10 +691,19 @@ onUnmounted(() => {
   border: 1px solid #eef2ff;
 }
 
+.tools-card--tomato {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: linear-gradient(135deg, rgba(254, 226, 226, 0.6) 0%, rgba(255, 247, 237, 0.9) 100%);
+}
+
 .card-title {
   font-size: 15px;
   font-weight: 600;
   color: #111827;
+}
+
+.card-title--tomato {
+  color: #b91c1c;
 }
 
 .settings-divider {
@@ -640,6 +715,25 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 16px;
 }
+
+.timer--tomato .timer__status {
+  color: #b91c1c;
+}
+
+.timer--tomato .timer__status strong {
+  color: #ef4444;
+}
+
+.timer--tomato .timer__controls .el-button--default {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #b91c1c;
+}
+
+.timer--tomato .timer__controls .el-button--default:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
 
 .timer__status {
   display: flex;
@@ -736,6 +830,220 @@ onUnmounted(() => {
 .empty {
   font-size: 13px;
   color: #9ca3af;
+}
+
+/* ===== 今日清单 ===== */
+.tools-card--today {
+  border-color: rgba(99, 102, 241, 0.2);
+  background: linear-gradient(135deg, rgba(238, 242, 255, 0.7) 0%, rgba(248, 250, 252, 0.95) 100%);
+}
+
+.today-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.today-date-badge {
+  font-size: 12px;
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.1);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.today-stats {
+  display: flex;
+  gap: 0;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(99, 102, 241, 0.12);
+}
+
+.today-stat-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 8px;
+  background: rgba(255, 255, 255, 0.7);
+  gap: 2px;
+  position: relative;
+}
+
+.today-stat-item + .today-stat-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  height: 60%;
+  width: 1px;
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.today-stat-num {
+  font-size: 22px;
+  font-weight: 700;
+  color: #6366f1;
+  line-height: 1;
+}
+
+.today-stat-num--done {
+  color: #10b981;
+}
+
+.today-stat-num--left {
+  color: #f59e0b;
+}
+
+.today-stat-label {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.today-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 2px;
+  margin-bottom: 12px;
+}
+
+.today-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.today-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.today-list::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: 2px;
+}
+
+.today-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 0;
+  gap: 8px;
+}
+
+.today-empty__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #818cf8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #fff;
+}
+
+.today-empty__text {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.today-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  user-select: none;
+}
+
+.today-item:hover {
+  background: rgba(255, 255, 255, 1);
+}
+
+.today-item.is-done {
+  opacity: 0.55;
+}
+
+.today-item.is-done .today-item__title {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+
+.today-item__check {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #6366f1;
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.today-item__check svg {
+  width: 12px;
+  height: 12px;
+}
+
+.today-item__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.today-item__title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s;
+}
+
+.today-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.today-item__type-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.today-item__type-label {
+  color: #9ca3af;
+}
+
+.today-item__time {
+  margin-left: auto;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.today-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(99, 102, 241, 0.1);
 }
 
 @media (max-width: 1024px) {
