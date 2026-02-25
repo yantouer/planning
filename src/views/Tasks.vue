@@ -164,6 +164,16 @@ const formatTime = (value) => {
 }
 
 const todayLabel = computed(() => toDateLabel(startOfDay(new Date())))
+const tomorrowLabel = computed(() => {
+  const date = new Date()
+  date.setDate(date.getDate() + 1)
+  return toDateLabel(startOfDay(date))
+})
+const dayAfterTomorrowLabel = computed(() => {
+  const date = new Date()
+  date.setDate(date.getDate() + 2)
+  return toDateLabel(startOfDay(date))
+})
 
 const todayListItems = computed(() => {
   const today = startOfDay(new Date())
@@ -437,6 +447,41 @@ onUnmounted(() => {
         </div>
       </el-card>
 
+            <el-card class="tools-card tools-card--notes" shadow="never">
+        <template #header>
+          <div class="card-title">便签速记</div>
+        </template>
+
+        <div class="quick-input-row">
+          <el-input
+            v-model="quickInput"
+            placeholder="回车保存灵感或待办要点"
+            class="quick-input"
+            @keyup.enter="saveQuickNote"
+          />
+          <el-button type="primary" @click="saveQuickNote">保存</el-button>
+        </div>
+
+        <div v-if="quickNotes.length === 0" class="notes-empty">
+          <div class="notes-empty__icon">💡</div>
+          <div class="notes-empty__text">暂无记录</div>
+        </div>
+
+        <div v-else class="notes-list">
+          <div
+            v-for="note in quickNotes"
+            :key="note.id"
+            class="note-card"
+          >
+            <div class="note-card__content">{{ note.text }}</div>
+            <div class="note-card__meta">
+              <span class="note-card__time">{{ formatNoteTime(note.createdAt) }}</span>
+            </div>
+            <div class="note-card__delete" @click="deleteQuickNote(note.id)">×</div>
+          </div>
+        </div>
+      </el-card>
+
       <el-card class="tools-card tools-card--today" shadow="never">
         <template #header>
           <div class="today-card-header">
@@ -497,41 +542,6 @@ onUnmounted(() => {
         </div>
       </el-card>
 
-      <el-card class="tools-card tools-card--notes" shadow="never">
-        <template #header>
-          <div class="card-title">便签速记</div>
-        </template>
-
-        <div class="quick-input-row">
-          <el-input
-            v-model="quickInput"
-            placeholder="回车保存灵感或待办要点"
-            class="quick-input"
-            @keyup.enter="saveQuickNote"
-          />
-          <el-button type="primary" @click="saveQuickNote">保存</el-button>
-        </div>
-
-        <div v-if="quickNotes.length === 0" class="notes-empty">
-          <div class="notes-empty__icon">💡</div>
-          <div class="notes-empty__text">暂无记录</div>
-        </div>
-
-        <div v-else class="notes-list">
-          <div
-            v-for="note in quickNotes"
-            :key="note.id"
-            class="note-card"
-          >
-            <div class="note-card__content">{{ note.text }}</div>
-            <div class="note-card__meta">
-              <span class="note-card__time">{{ formatNoteTime(note.createdAt) }}</span>
-            </div>
-            <div class="note-card__delete" @click="deleteQuickNote(note.id)">×</div>
-          </div>
-        </div>
-      </el-card>
-
       <el-card class="tools-card" shadow="never">
         <template #header>
           <div class="card-title">近7天事件</div>
@@ -560,6 +570,27 @@ onUnmounted(() => {
             <div class="upcoming-item__title">{{ event.title || '未命名事件' }}</div>
             <div class="upcoming-item__meta">
               <span class="upcoming-item__date">{{ event.date }}</span>
+              <el-tag
+                v-if="event.date === todayLabel"
+                size="small"
+                type="warning"
+                effect="light"
+                class="upcoming-item__today-tag"
+              >今日</el-tag>
+              <el-tag
+                v-else-if="event.date === tomorrowLabel"
+                size="small"
+                type="success"
+                effect="light"
+                class="upcoming-item__today-tag"
+              >明天</el-tag>
+              <el-tag
+                v-else-if="event.date === dayAfterTomorrowLabel"
+                size="small"
+                type="info"
+                effect="light"
+                class="upcoming-item__today-tag"
+              >后天</el-tag>
               <span>{{ event.isAllDay ? '全天' : `${formatTime(event.startTime)}-${formatTime(event.endTime)}` }}</span>
             </div>
           </div>
@@ -892,6 +923,16 @@ onUnmounted(() => {
 }
 
 .upcoming-item__date {
+  font-weight: 600;
+}
+
+.upcoming-item__today-tag {
+  margin-left: 6px;
+  font-size: 10px;
+  height: 18px;
+  line-height: 16px;
+  border-radius: 4px;
+  padding: 0 5px;
   font-weight: 600;
 }
 
