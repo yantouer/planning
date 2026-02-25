@@ -276,7 +276,7 @@ const efficiencyTip = computed(() => {
         <el-date-picker
           v-model="dateRange"
           type="daterange"
-          size="small"
+  
           class="stats-date"
           unlink-panels
           range-separator="至"
@@ -285,7 +285,7 @@ const efficiencyTip = computed(() => {
           value-format="YYYY-MM-DD"
           clearable
         />
-        <el-select v-model="range" size="small" class="stats-select">
+        <el-select v-model="range" class="stats-select">
           <el-option label="今天" value="今天" />
           <el-option label="近7天" value="近7天" />
           <el-option label="近30天" value="近30天" />
@@ -294,8 +294,8 @@ const efficiencyTip = computed(() => {
           <el-option label="本半年" value="本半年" />
           <el-option label="本年" value="本年" />
         </el-select>
-        <el-button size="small" type="primary">导出报表</el-button>
-        <el-button size="small" type="primary">生成周报</el-button>
+        <el-button type="primary">导出报表</el-button>
+        <el-button type="primary">生成周报</el-button>
       </div>
 
     </header>
