@@ -42,9 +42,32 @@ const getEventRange = (event) => {
 
 const rangeInfo = computed(() => {
   const today = startOfDay(new Date())
+  if (range.value === '今天') {
+    return { start: today, end: today, days: 1 }
+  }
   if (range.value === '本月') {
     const start = new Date(today.getFullYear(), today.getMonth(), 1)
     const end = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    const days = Math.floor((end - start) / 86400000) + 1
+    return { start, end, days }
+  }
+  if (range.value === '本季度') {
+    const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3
+    const start = new Date(today.getFullYear(), quarterStartMonth, 1)
+    const end = new Date(today.getFullYear(), quarterStartMonth + 3, 0)
+    const days = Math.floor((end - start) / 86400000) + 1
+    return { start, end, days }
+  }
+  if (range.value === '本半年') {
+    const halfStartMonth = today.getMonth() < 6 ? 0 : 6
+    const start = new Date(today.getFullYear(), halfStartMonth, 1)
+    const end = new Date(today.getFullYear(), halfStartMonth + 6, 0)
+    const days = Math.floor((end - start) / 86400000) + 1
+    return { start, end, days }
+  }
+  if (range.value === '本年') {
+    const start = new Date(today.getFullYear(), 0, 1)
+    const end = new Date(today.getFullYear(), 11, 31)
     const days = Math.floor((end - start) / 86400000) + 1
     return { start, end, days }
   }
@@ -56,9 +79,29 @@ const rangeInfo = computed(() => {
 
 const previousRangeInfo = computed(() => {
   const { start, end, days } = rangeInfo.value
+  if (range.value === '今天') {
+    const prevStart = new Date(start)
+    prevStart.setDate(start.getDate() - 1)
+    return { start: prevStart, end: prevStart }
+  }
   if (range.value === '本月') {
     const prevStart = new Date(start.getFullYear(), start.getMonth() - 1, 1)
     const prevEnd = new Date(start.getFullYear(), start.getMonth(), 0)
+    return { start: prevStart, end: prevEnd }
+  }
+  if (range.value === '本季度') {
+    const prevStart = new Date(start.getFullYear(), start.getMonth() - 3, 1)
+    const prevEnd = new Date(start.getFullYear(), start.getMonth(), 0)
+    return { start: prevStart, end: prevEnd }
+  }
+  if (range.value === '本半年') {
+    const prevStart = new Date(start.getFullYear(), start.getMonth() - 6, 1)
+    const prevEnd = new Date(start.getFullYear(), start.getMonth(), 0)
+    return { start: prevStart, end: prevEnd }
+  }
+  if (range.value === '本年') {
+    const prevStart = new Date(start.getFullYear() - 1, 0, 1)
+    const prevEnd = new Date(start.getFullYear() - 1, 11, 31)
     return { start: prevStart, end: prevEnd }
   }
   const prevStart = new Date(start)
@@ -67,6 +110,8 @@ const previousRangeInfo = computed(() => {
   prevEnd.setDate(end.getDate() - days)
   return { start: prevStart, end: prevEnd }
 })
+
+
 
 const isInRange = (event, rangeStart, rangeEnd) => {
   const { start, end } = getEventRange(event)
@@ -243,10 +288,16 @@ const efficiencyTip = computed(() => {
       </div>
       <div class="stats-actions">
         <el-select v-model="range" size="small" class="stats-select">
+          <el-option label="今天" value="今天" />
           <el-option label="近7天" value="近7天" />
           <el-option label="近30天" value="近30天" />
           <el-option label="本月" value="本月" />
+          <el-option label="本季度" value="本季度" />
+          <el-option label="本半年" value="本半年" />
+          <el-option label="本年" value="本年" />
         </el-select>
+
+
         <el-button size="small" type="primary">导出报表</el-button>
       </div>
     </header>
