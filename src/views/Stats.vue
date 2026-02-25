@@ -295,6 +295,7 @@ const efficiencyTip = computed(() => {
           <el-option label="本年" value="本年" />
         </el-select>
         <el-button size="small" type="primary">导出报表</el-button>
+        <el-button size="small" type="primary">生成周报</el-button>
       </div>
 
     </header>
