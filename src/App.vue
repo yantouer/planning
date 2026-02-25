@@ -1,11 +1,61 @@
 <script setup>
-import Calendar from './views/Calendar.vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
 </script>
 
 <template>
-  <Calendar />
+  <div class="app-layout">
+    <aside class="side-menu">
+      <el-menu
+        class="side-menu__menu"
+        :default-active="route.path"
+        router
+      >
+        <el-menu-item index="/calendar">日历</el-menu-item>
+        <el-menu-item index="/tasks">任务</el-menu-item>
+        <el-menu-item index="/stats">统计</el-menu-item>
+        <el-menu-item index="/settings">设置</el-menu-item>
+      </el-menu>
+    </aside>
+    <main class="app-content">
+      <router-view />
+    </main>
+  </div>
 </template>
 
 <style scoped>
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f7f7f8;
+}
+
+.side-menu {
+  width: 70px;
+  flex: 0 0 70px;
+  background: #1f2329;
+  color: #fff;
+  /* padding: 20px 16px; */
+  box-sizing: border-box;
+  --el-menu-bg-color: #1f2329;
+  --el-menu-text-color: #d6dbe1;
+  --el-menu-active-color: #ffffff;
+  --el-menu-hover-bg-color: rgba(255, 255, 255, 0.12);
+  --el-menu-item-height: 44px;
+}
+
+.side-menu__menu {
+  border-right: none;
+  background-color: transparent;
+}
+
+.app-content {
+  flex: 1;
+  box-sizing: border-box;
+}
 </style>
+
+
+
 
