@@ -15,8 +15,9 @@ const route = useRoute()
         <el-menu-item index="/calendar">日历</el-menu-item>
         <el-menu-item index="/tasks">任务</el-menu-item>
         <el-menu-item index="/stats">统计</el-menu-item>
-        <el-menu-item index="/settings">设置</el-menu-item>
+        <el-menu-item index="/settings" class="side-menu__bottom-item">设置</el-menu-item>
       </el-menu>
+
     </aside>
     <main class="app-content">
       <router-view />
@@ -34,9 +35,11 @@ const route = useRoute()
 .side-menu {
   width: 70px;
   flex: 0 0 70px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: #1f2329;
   color: #fff;
-  /* padding: 20px 16px; */
   box-sizing: border-box;
   --el-menu-bg-color: #1f2329;
   --el-menu-text-color: #d6dbe1;
@@ -48,7 +51,15 @@ const route = useRoute()
 .side-menu__menu {
   border-right: none;
   background-color: transparent;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
+
+.side-menu__bottom-item {
+  margin-top: auto;
+}
+
 
 .app-content {
   flex: 1;
