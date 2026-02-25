@@ -407,7 +407,7 @@ onUnmounted(() => {
     <section class="tools-grid">
       <el-card class="tools-card tools-card--tomato" shadow="never">
         <template #header>
-          <div class="card-title card-title--tomato">专注计时器(番茄时钟)</div>
+          <div class="card-title card-title--tomato">专注计时器(番茄时钟、深度时钟、冲刺时钟)</div>
         </template>
         <div class="timer timer--tomato">
           <div class="timer__status">
