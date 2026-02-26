@@ -136,11 +136,12 @@ const weekDays = computed(() => {
   const start = new Date(currentWeekStart.value)
   const dayOfWeek = start.getDay()
   const diff = start.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
-  start.setDate(diff)
-
+  
+  // 创建周一的日期（不修改原始start对象）
+  const monday = new Date(start.getFullYear(), start.getMonth(), diff)
+  
   for (let i = 0; i < 7; i++) {
-    const date = new Date(start)
-    date.setDate(start.getDate() + i)
+    const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i)
     days.push(date)
   }
   return days
@@ -192,9 +193,17 @@ const formatTime = (hour) => {
   return `${h.toString().padStart(2, '0')}:${m === 0 ? '00' : m.toString()}`
 }
 
+// 时区安全的日期格式化函数（返回YYYY-MM-DD格式，使用本地时区）
+const formatDateLocal = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 // 获取某天的事件
 const getEventsByDay = (day) => {
-  const dayStr = day.toISOString().split('T')[0]
+  const dayStr = formatDateLocal(day)
   return events.value.filter(event => {
     if (!event.isAllDay) {
       return event.date === dayStr
@@ -209,7 +218,7 @@ const getEventsByDay = (day) => {
 
 // 获取某天的全天事件
 const getAllDayEvents = (day) => {
-  const dayStr = day.toISOString().split('T')[0]
+  const dayStr = formatDateLocal(day)
   return events.value.filter(event => {
     if (!event.isAllDay) return false
 
@@ -364,7 +373,7 @@ const startDrag = (e, day, slot) => {
 
 // 在全天事件区域点击创建新事件
 const startDragAllDay = (e, day) => {
-  const eventDate = day.toISOString().split('T')[0]
+  const eventDate = formatDateLocal(day)
 
   // 创建临时全天事件对象
   const tempEvent = {
@@ -409,7 +418,7 @@ const endDrag = (e, day, slot) => {
 
   // 使用拖拽起始的日期，确保事件在正确的一天
   if (dragDay.value && dragStartTime.value !== null) {
-    const eventDate = dragDay.value.toISOString().split('T')[0]
+    const eventDate = formatDateLocal(dragDay.value)
     const startTime = Math.min(dragStartTime.value, endValue)
     let endTime = Math.max(dragStartTime.value, endValue)
 
@@ -609,7 +618,7 @@ const remainingWeeks = computed(() => {
 
 // 获取本周所有事件
 const weekEvents = computed(() => {
-  const weekDateStrings = weekDays.value.map(day => day.toISOString().split('T')[0])
+  const weekDateStrings = weekDays.value.map(day => formatDateLocal(day))
   return events.value.filter(event => {
     // 检查事件是否在本周范围内
     if (event.isAllDay) {
@@ -652,6 +661,17 @@ onMounted(() => {
 
   // 启动提醒检查
   startReminderCheck()
+  
+  // 测试时区修复
+  console.log('=== 测试时区修复 ===')
+  const testDate = new Date(2026, 2, 24) // 3月24日
+  console.log(`测试日期: ${testDate.toLocaleDateString()}`)
+  console.log(`ISO格式: ${testDate.toISOString().split('T')[0]}`)
+  console.log(`本地格式: ${formatDateLocal(testDate)}`)
+  console.log('=== 时区测试结束 ===')
+  
+  // 调试weekDays计算
+  debugWeekDaysCalculation()
 
   // 组件卸载时清理定时器
   onUnmounted(() => {
@@ -710,7 +730,7 @@ const checkReminders = () => {
   if (!reminderEnabled.value) return
 
   const now = new Date()
-  const todayStr = now.toISOString().split('T')[0]
+  const todayStr = formatDateLocal(now)
   const currentHour = now.getHours()
   const currentMinute = now.getMinutes()
   const currentTime = currentHour + currentMinute / 60
@@ -730,7 +750,7 @@ const checkReminders = () => {
   })
 
   // 清理过期的通知记录（超过1天的记录）
-  const oldDate = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const oldDate = formatDateLocal(new Date(now.getTime() - 24 * 60 * 60 * 1000))
   notifiedEvents.value.forEach(key => {
     if (key.includes(oldDate)) {
       notifiedEvents.value.delete(key)
@@ -754,13 +774,13 @@ const stopReminderCheck = () => {
 
 // 检查全天事件是否是跨天事件的第一天
 const isAllDayEventFirstDay = (event, day) => {
-  const dayStr = day.toISOString().split('T')[0]
+  const dayStr = formatDateLocal(day)
   return event.date === dayStr
 }
 
 // 获取本周所有全天事件并计算布局
 const allDayEventsLayout = computed(() => {
-  const weekDateStrings = weekDays.value.map(day => day.toISOString().split('T')[0])
+  const weekDateStrings = weekDays.value.map(day => formatDateLocal(day))
 
   // 获取所有与本周相关的全天事件
   const relevantEvents = events.value.filter(event => {
@@ -844,6 +864,36 @@ const allDayEventsRowCount = computed(() => {
   const maxRow = allDayEventsWithLayout.value.reduce((max, e) => Math.max(max, e.row), 0)
   return maxRow + 1
 })
+
+// 调试函数：检查weekDays计算是否正确
+const debugWeekDaysCalculation = () => {
+  console.log('=== 调试weekDays计算 ===')
+  const weekDaysList = weekDays.value
+  
+  console.log('当前周开始日期:', currentWeekStart.value.toISOString())
+  console.log('计算的weekDays:')
+  weekDaysList.forEach((day, index) => {
+    const dayName = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][index]
+    console.log(`  ${index}: ${dayName} - ${formatDateLocal(day)} (第${day.getDay()}天)`)
+  })
+  
+  // 测试24号是否在正确的位置
+  const targetDate = '2026-03-24'
+  const targetDay = new Date(targetDate)
+  const foundIndex = weekDaysList.findIndex(day => {
+    return formatDateLocal(day) === targetDate
+  })
+  
+  if (foundIndex !== -1) {
+    console.log(`✓ 找到${targetDate}在weekDays中的位置: ${foundIndex}`)
+    console.log(`  对应的星期: ${['周一', '周二', '周三', '周四', '周五', '周六', '周日'][foundIndex]}`)
+  } else {
+    console.log(`✗ 未找到${targetDate}在当前weekDays中`)
+    console.log('当前weekDays包含的日期:', weekDaysList.map(d => formatDateLocal(d)))
+  }
+  
+  console.log('=== weekDays调试结束 ===')
+}
 </script>
 
 <template>

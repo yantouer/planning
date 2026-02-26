@@ -288,6 +288,14 @@ const firstDayOfWeek = computed(() => {
   return dayIndex === 0 ? 6 : dayIndex - 1
 })
 
+// 时区安全的日期格式化函数（返回YYYY-MM-DD格式，使用本地时区）
+const formatDateLocal = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const daysInMonth = computed(() => {
   const cacheKey = `${currentYear.value}-${currentMonth.value}`
   
@@ -316,12 +324,12 @@ const daysInMonth = computed(() => {
         if (isNaN(eventStartDate.getTime())) return false
         if (event.endDate && isNaN(eventEndDate.getTime())) return false
         
-        // 对于非跨天事件，检查日期是否完全匹配
-        if (!event.endDate || event.endDate === event.date) {
-          const eventDateString = eventStartDate.toISOString().split('T')[0]
-          const currentDateString = date.toISOString().split('T')[0]
-          return eventDateString === currentDateString
-        }
+      // 对于非跨天事件，检查日期是否完全匹配
+      if (!event.endDate || event.endDate === event.date) {
+        const eventDateString = formatDateLocal(eventStartDate)
+        const currentDateString = formatDateLocal(date)
+        return eventDateString === currentDateString
+      }
         
         // 对于跨天事件，检查日期范围
         const currentDate = new Date(date)
