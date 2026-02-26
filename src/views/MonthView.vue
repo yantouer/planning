@@ -16,6 +16,7 @@
         <div class="stats-item">
           <span class="stats-label">全天:</span>
           <span class="stats-value">{{ monthStats.allDayEvents }}</span>
+          <!-- <span class="stats-label">天</span> -->
         </div>
         <div class="stats-item">
           <span class="stats-label">定时:</span>
