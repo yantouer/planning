@@ -71,12 +71,16 @@ const formatDateKey = (date) => {
   return `${m}-${d}`
 }
 
+// getHolidayData 已经有节假日数据不在加载
 async function getHolidayData() {
-  const res = await invoke("http_get", { url: preferences.value.holidayApiUrl });
-  console.log('Rust 响应：', res);
-  holidayData.value = res.holiday;
-  console.log('解析后的 holidayData：', holidayData.value);
-  saveHolidayData();
+  const raw = localStorage.getItem('holiday-data')
+  if (raw) {
+    console.info("has holiday data")
+  } else {
+    const res = await invoke("http_get", { url: preferences.value.holidayApiUrl });
+    holidayData.value = res.holiday;
+    saveHolidayData();
+  }
 }
 
 // 事件类型配置
