@@ -1,11 +1,16 @@
 <script setup>
 import { ElMessage } from 'element-plus'
+import { ref } from 'vue'
 import {
   profile,
   preferences,
   notifications,
   privacy,
   storage,
+  ai,
+  addModel,
+  removeModel,
+  updateModel,
   resetSettings as storeReset
 } from '../store/settings.js'
 
@@ -16,6 +21,74 @@ const saveSettings = () => {
 const resetSettings = () => {
   storeReset()
   ElMessage.success('已恢复默认设置')
+}
+
+// AI模型管理
+const currentEditingModel = ref(null)
+const isEditingModel = ref(false)
+const showAddModelDialog = ref(false)
+
+
+
+const startAddModel = () => {
+  currentEditingModel.value = {
+    name: '',
+    modelUrl: '',
+    apiKey: '',
+    modelName: '',
+    maxTokens: 2000,
+    temperature: 0.7,
+    enabled: true
+  }
+  isEditingModel.value = false
+  showAddModelDialog.value = true
+}
+
+const startEditModel = (model) => {
+  currentEditingModel.value = { ...model }
+  isEditingModel.value = true
+  showAddModelDialog.value = true
+}
+
+const saveModel = () => {
+  if (!currentEditingModel.value || !currentEditingModel.value.name) {
+    ElMessage.warning('请填写模型名称')
+    return
+  }
+  
+  if (isEditingModel.value) {
+    // 编辑现有模型
+    updateModel(currentEditingModel.value.id, currentEditingModel.value)
+    ElMessage.success('模型已更新')
+  } else {
+    // 添加新模型
+    addModel(currentEditingModel.value)
+    ElMessage.success('模型已添加')
+  }
+  showAddModelDialog.value = false
+  currentEditingModel.value = null
+  isEditingModel.value = false
+}
+
+const deleteModel = (modelId) => {
+  if (ai.value.models.length <= 1) {
+    ElMessage.warning('至少需要保留一个模型')
+    return
+  }
+  removeModel(modelId)
+  ElMessage.success('模型已删除')
+}
+
+const cancelEditModel = () => {
+  showAddModelDialog.value = false
+  currentEditingModel.value = null
+  isEditingModel.value = false
+}
+
+// 处理对话框关闭
+const handleDialogClose = (done) => {
+  cancelEditModel()
+  done()
 }
 </script>
 
@@ -143,6 +216,118 @@ const resetSettings = () => {
           </div>
         </div>
       </el-card>
+
+      <el-card class="settings-card" shadow="never">
+        <template #header>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="card-title">大模型配置 - OpenAI Compatible</div>
+            <el-button size="small" type="primary" @click="startAddModel">添加模型</el-button>
+          </div>
+        </template>
+        
+        <!-- 模型选择器 -->
+        <div style="margin-bottom: 20px;">
+          <el-form-item label="当前模型">
+            <el-select v-model="ai.selectedModelId" placeholder="选择模型" style="width: 100%;">
+              <el-option 
+                v-for="model in ai.models.filter(m => m.enabled)" 
+                :key="model.id"
+                :label="model.name"
+                :value="model.id"
+              />
+            </el-select>
+          </el-form-item>
+        </div>
+
+        <!-- 模型列表 -->
+        <div class="model-list">
+          <div 
+            v-for="model in ai.models" 
+            :key="model.id"
+            class="model-item"
+            :class="{ 'is-selected': model.id === ai.selectedModelId }"
+          >
+            <div class="model-info">
+              <div class="model-name">{{ model.name }}</div>
+              <div class="model-details">
+                <span>{{ model.modelName || '未指定模型' }}</span>
+                <el-tag v-if="!model.enabled" type="info" size="small">已禁用</el-tag>
+              </div>
+            </div>
+            <div class="model-actions">
+              <el-button size="small" @click="startEditModel(model)">编辑</el-button>
+              <el-button 
+                size="small" 
+                type="danger" 
+                @click="deleteModel(model.id)"
+                :disabled="ai.models.length <= 1"
+              >删除</el-button>
+            </div>
+          </div>
+        </div>
+      </el-card>
+
+      <!-- 添加/编辑模型对话框 -->
+      <el-dialog 
+        :title="isEditingModel ? '编辑模型' : '添加模型'" 
+        v-model="showAddModelDialog"
+        width="500px"
+        :before-close="handleDialogClose"
+      >
+        <el-form :model="currentEditingModel" label-width="100px" v-if="currentEditingModel">
+          <el-form-item label="模型名称" required>
+            <el-input 
+              v-model="currentEditingModel.name" 
+              placeholder="输入模型显示名称"
+            />
+          </el-form-item>
+          <el-form-item label="API地址">
+            <el-input 
+              v-model="currentEditingModel.modelUrl" 
+              placeholder="输入大模型API地址"
+            />
+          </el-form-item>
+          <el-form-item label="API密钥">
+            <el-input 
+              v-model="currentEditingModel.apiKey" 
+              type="password" 
+              placeholder="输入API密钥" 
+              show-password 
+            />
+          </el-form-item>
+          <el-form-item label="模型标识">
+            <el-input 
+              v-model="currentEditingModel.modelName" 
+              placeholder="如：gpt-3.5-turbo"
+            />
+          </el-form-item>
+          <el-form-item label="最大Token">
+            <el-input-number 
+              v-model="currentEditingModel.maxTokens" 
+              :min="100" 
+              :max="8000" 
+              :step="100" 
+            />
+          </el-form-item>
+          <el-form-item label="Temperature">
+            <el-slider 
+              v-model="currentEditingModel.temperature" 
+              :min="0" 
+              :max="2" 
+              :step="0.1" 
+              show-input 
+            />
+          </el-form-item>
+          <el-form-item label="启用状态">
+            <el-switch v-model="currentEditingModel.enabled" />
+          </el-form-item>
+        </el-form>
+        
+        <template #footer>
+          <el-button @click="cancelEditModel">取消</el-button>
+          <el-button type="primary" @click="saveModel">保存</el-button>
+        </template>
+      </el-dialog>
 
       <el-card class="settings-card" shadow="never">
         <template #header>
@@ -362,6 +547,59 @@ const resetSettings = () => {
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+/* AI模型列表样式 */
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.model-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  transition: all 0.2s ease;
+}
+
+.model-item:hover {
+  border-color: #667eea;
+  background: #f3f4f6;
+}
+
+.model-item.is-selected {
+  border-color: #667eea;
+  background: #ede9fe;
+}
+
+.model-info {
+  flex: 1;
+}
+
+.model-name {
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.model-details {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.model-actions {
+  display: flex;
+  gap: 8px;
 }
 </style>
 
